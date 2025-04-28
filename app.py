@@ -30,6 +30,8 @@ def load_data():
         'ca', 'thal', 'target'
     ])
     data.replace('?', np.nan, inplace=True)
+    data.fillna(data.mean(), inplace=True)  # For numeric columns
+
     data['target'] = data['target'].apply(lambda x: 1 if int(x) > 0 else 0)
     return data
 
@@ -85,7 +87,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 # --- Train Models ---
 if model_choice == 'Logistic Regression':
-    model = LogisticRegression(max_iter=1000)
+    model = LogisticRegression(max_iter=3000)
 elif model_choice == 'Random Forest':
     model = RandomForestClassifier()
 else:
