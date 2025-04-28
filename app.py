@@ -38,7 +38,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 # ----------------------------------
 # Train models
 # ----------------------------------
-log_reg = LogisticRegression(max_iter=1000)
+log_reg = LogisticRegression(max_iter=3000)
 log_reg.fit(X_train, y_train)
 
 random_forest = RandomForestClassifier(random_state=42)
@@ -51,8 +51,14 @@ xgboost_model.fit(X_train, y_train)
 # Streamlit UI
 # ----------------------------------
 st.title("Heart Disease Prediction App ❤️")
+st.markdown("""
+This application predicts the likelihood of a patient having heart disease using different Machine Learning models:
+- Logistic Regression
+- Random Forest
+- XGBoost
 
-st.sidebar.header('User Input Features')
+Upload patient data, select a model, and get instant predictions!
+""")
 
 def user_input_features():
     age = st.sidebar.slider('Age', 20, 100, 50)
@@ -92,7 +98,7 @@ input_df = user_input_features()
 # ----------------------------------
 # Model Selection
 # ----------------------------------
-model_choice = st.selectbox('Select Model', ('Logistic Regression', 'Random Forest', 'XGBoost'))
+model_choice = st.selectbox('Select the Machine Learning Model', ('Logistic Regression', 'Random Forest', 'XGBoost'))
 
 # ----------------------------------
 # Prediction
@@ -100,15 +106,31 @@ model_choice = st.selectbox('Select Model', ('Logistic Regression', 'Random Fore
 if st.button('Predict'):
     if model_choice == 'Logistic Regression':
         prediction = log_reg.predict(input_df)
+        prediction_proba = log_reg.predict_proba(input_df)
     elif model_choice == 'Random Forest':
         prediction = random_forest.predict(input_df)
+        prediction_proba = random_forest.predict_proba(input_df)
     else:
         prediction = xgboost_model.predict(input_df)
+        prediction_proba = xgboost_model.predict_proba(input_df)
     
-    result = 'Heart Disease Detected 💔' if prediction[0] == 1 else 'No Heart Disease ❤️'
+    # result = 'Heart Disease Detected 💔' if prediction[0] == 1 else 'No Heart Disease ❤️'
     
+    
+# --- Display Predictions ---
     st.subheader('Prediction Result:')
-    st.success(result)
+    if prediction[0] == 0:
+        st.success('✅ No Heart Disease Detected')
+    else:
+        st.error('⚠️ High Risk of Heart Disease')
+
+    st.subheader("Prediction Probability:")
+    st.write(f"Chances of No Heart Disease: {prediction_proba[0][0]*100:.2f}%")
+    st.write(f"Chances of Heart Disease: {prediction_proba[0][1]*100:.2f}%")
+
+# --- Footer ---
+    st.markdown("""---""")
+    st.caption("Created by Raj Zaveri 🚀 | Powered by Machine Learning")
 
 # ----------------------------------
 # Show Raw Data
