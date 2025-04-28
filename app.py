@@ -30,12 +30,12 @@ def load_data():
         'ca', 'thal', 'target'
     ])
     data.replace('?', np.nan, inplace=True)
-    data.fillna(data.mean(), inplace=True)  # For numeric columns
 
     data['target'] = data['target'].apply(lambda x: 1 if int(x) > 0 else 0)
     return data
 
 df = load_data()
+df.fillna(df.mean(), inplace=True)  # For numeric columns
 
 # --- Sidebar for User Input ---
 st.sidebar.header('User Input Options')
