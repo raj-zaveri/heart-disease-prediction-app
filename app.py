@@ -106,7 +106,7 @@ if page == "Heart Disease Prediction":
 
         st.markdown("---")
         st.subheader("🔎 Risk Probability")
-        st.write(f"**Probability of Heart Disease:** {prediction_proba * 100:.0f}%")
+        st.write(f"**Probability of Heart Disease:** {prediction_proba * 100:.1f}%")
 
 
         # 🎯 Visualization
