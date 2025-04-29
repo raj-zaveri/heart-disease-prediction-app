@@ -1,21 +1,16 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import plotly.graph_objects as go
 
-# Streamlit page configuration
-st.set_page_config(page_title="Heart Disease Predictor", layout="wide", page_icon="💓")
-
-# Title section
-st.markdown("""
-    <h1 style='text-align: center; color: crimson;'>💓 Heart Disease Prediction App</h1>
-    <p style='text-align: center; font-size:18px;'>Input patient details to predict the likelihood of heart disease using ML models</p>
-""", unsafe_allow_html=True)
+# Page configuration
+st.set_page_config(page_title="Heart Disease Prediction App", layout="wide")
 
 # Load and preprocess the dataset
 @st.cache_data
@@ -34,86 +29,124 @@ def load_data():
 
 df = load_data()
 
-# Sidebar input fields
-st.sidebar.title("📝 Patient Info")
-st.sidebar.markdown("Fill in the patient's details:")
+# Split the data
+X = df.drop('target', axis=1)
+y = df['target']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-def user_input_features():
-    age = st.sidebar.slider("Age", 29, 77, 54)
-    sex = st.sidebar.selectbox("Sex", [0, 1], format_func=lambda x: 'Female' if x == 0 else 'Male')
-    cp = st.sidebar.selectbox("Chest Pain Type (cp)", [0, 1, 2, 3])
-    trestbps = st.sidebar.slider("Resting Blood Pressure", 90, 200, 130)
-    chol = st.sidebar.slider("Cholesterol (mg/dL)", 120, 600, 245)
-    fbs = st.sidebar.radio("Fasting Blood Sugar > 120 mg/dL", [0, 1])
-    restecg = st.sidebar.selectbox("Resting ECG", [0, 1, 2])
-    thalach = st.sidebar.slider("Max Heart Rate", 70, 210, 150)
-    exang = st.sidebar.radio("Exercise-Induced Angina", [0, 1])
-    oldpeak = st.sidebar.slider("ST Depression", 0.0, 6.0, 1.0)
-    slope = st.sidebar.selectbox("Slope", [0, 1, 2])
-    ca = st.sidebar.selectbox("Major Vessels Colored", [0, 1, 2, 3])
-    thal = st.sidebar.selectbox("Thalassemia", [0, 1, 2, 3])
-
-    features = {
-        'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol,
-        'fbs': fbs, 'restecg': restecg, 'thalach': thalach, 'exang': exang,
-        'oldpeak': oldpeak, 'slope': slope, 'ca': ca, 'thal': thal
-    }
-    return pd.DataFrame([features])
-
-input_df = user_input_features()
-
-# Model selection
-st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ Select Classifier")
-model_name = st.sidebar.radio("Choose an ML model", 
-                              ["Logistic Regression", "Random Forest", "XGBoost"])
-
-# Data preparation
-X = df.drop("target", axis=1)
-y = df["target"]
+# Scale the features
 scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-X_train, X_test, y_train, y_test = train_test_split(
-    X_scaled, y, test_size=0.2, random_state=42
-)
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
 
-# Apply same scaling to user input
-input_scaled = scaler.transform(input_df)
+# Train models
+logistic_model = LogisticRegression(random_state=42)
+logistic_model.fit(X_train, y_train)
 
-# Model training
-if model_name == "Logistic Regression":
-    model = LogisticRegression()
-elif model_name == "Random Forest":
-    model = RandomForestClassifier()
-else:
-    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+rf_model = RandomForestClassifier(random_state=42)
+rf_model.fit(X_train, y_train)
 
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-prediction = model.predict(input_scaled)[0]
-prediction_proba = model.predict_proba(input_scaled)[0][1]
+xgb_model = XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss')
+xgb_model.fit(X_train, y_train)
 
-# Layout with columns
-col1, col2 = st.columns([1, 2])
+# Sidebar for navigation
+st.sidebar.title("Navigation")
+page = st.sidebar.selectbox("Select Page", ["Heart Disease Prediction"])
 
-# Results
-with col1:
-    st.subheader("🔍 Prediction Results")
-    st.metric("Model Accuracy", f"{accuracy_score(y_test, y_pred)*100:.2f}%")
-    st.metric("Patient Risk", "💔 At Risk" if prediction == 1 else "✅ No Risk")
-    st.progress(prediction_proba)
+# Input form
+if page == "Heart Disease Prediction":
+    st.title("❤️ Heart Disease Prediction App")
+    st.markdown("---")
 
-with col2:
-    with st.expander("📊 Detailed Evaluation"):
+    st.header("Enter Patient Details")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        age = st.number_input('Age', 20, 100, step=1)
+        trestbps = st.number_input('Resting Blood Pressure (mm Hg)', 80, 200, step=1)
+        chol = st.number_input('Serum Cholestoral (mg/dl)', 100, 600, step=1)
+        fbs = st.selectbox('Fasting Blood Sugar > 120 mg/dl', [0, 1])
+
+    with col2:
+        sex = st.selectbox('Sex', [0, 1])
+        cp = st.selectbox('Chest Pain Type (0-3)', [0, 1, 2, 3])
+        restecg = st.selectbox('Resting ECG (0-2)', [0, 1, 2])
+        thalach = st.number_input('Max Heart Rate Achieved', 70, 210, step=1)
+
+    with col3:
+        exang = st.selectbox('Exercise Induced Angina', [0, 1])
+        oldpeak = st.number_input('Oldpeak (ST depression)', 0.0, 6.0, step=0.1)
+        slope = st.selectbox('Slope of Peak Exercise ST Segment (0-2)', [0, 1, 2])
+        ca = st.selectbox('Number of Major Vessels Colored (0-3)', [0, 1, 2, 3])
+        thal = st.selectbox('Thalassemia (1 = Normal; 2 = Fixed defect; 3 = Reversable defect)', [1, 2, 3])
+
+    model_choice = st.selectbox('Select Model', ['Logistic Regression', 'Random Forest', 'XGBoost'])
+
+    input_data = np.array([[age, sex, cp, trestbps, chol, fbs, restecg,
+                            thalach, exang, oldpeak, slope, ca, thal]])
+    input_scaled = scaler.transform(input_data)
+
+    if st.button('Predict'):
+        if model_choice == 'Logistic Regression':
+            prediction = logistic_model.predict(input_scaled)[0]
+            prediction_proba = logistic_model.predict_proba(input_scaled)[0][1]
+        elif model_choice == 'Random Forest':
+            prediction = rf_model.predict(input_scaled)[0]
+            prediction_proba = rf_model.predict_proba(input_scaled)[0][1]
+        else:
+            prediction = xgb_model.predict(input_scaled)[0]
+            prediction_proba = xgb_model.predict_proba(input_scaled)[0][1]
+
+        # Display result
+        if prediction == 0:
+            st.success('✅ No Heart Disease Detected.')
+        else:
+            st.error('⚠️ High Risk of Heart Disease Detected!')
+
+        st.markdown("---")
+        st.subheader("🔎 Risk Probability")
+        st.write(f"**Probability of Heart Disease:** {prediction_proba:.2f}")
+
+
+        # 🎯 Visualization
+        st.subheader("🔎 Prediction Result Visualization")
+
+        # Risk Gauge Visualization
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=prediction_proba * 100,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Risk (%)", 'font': {'size': 24}},
+            gauge={
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
+                'bar': {'color': "red"},
+                'steps': [
+                    {'range': [0, 40], 'color': 'lightgreen'},
+                    {'range': [40, 70], 'color': 'yellow'},
+                    {'range': [70, 100], 'color': 'red'}
+                ],
+                'threshold': {
+                    'line': {'color': "black", 'width': 4},
+                    'thickness': 0.75,
+                    'value': prediction_proba * 100
+                }
+            }
+        ))
+
+        st.plotly_chart(fig)
+
+        # 🎯 Show Model Performance
+        st.subheader("⚙️ Model Performance on Test Data")
+
+        y_pred_test = model.predict(X_test)
+        st.write(f"Accuracy Score: **{accuracy_score(y_test, y_pred_test):.2f}**")
+
         st.text("Classification Report:")
-        st.code(classification_report(y_test, y_pred), language='text')
-        st.text("Confusion Matrix:")
-        st.write(confusion_matrix(y_test, y_pred))
+        st.text(classification_report(y_test, y_pred_test))
 
-# Footer
-st.markdown("""
-<hr>
-<p style='text-align: center;'>
-Made with ❤️ using Streamlit | <a href='https://github.com/raj-zaveri'>GitHub</a>
-</p>
-""", unsafe_allow_html=True)
+        # -----------------------
+        # Footer
+        # -----------------------
+        st.markdown("---")
+        st.markdown("Made with ❤️ by Raj Zaveri")
