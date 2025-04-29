@@ -1,140 +1,119 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
-# ----------------------------------
-# Load the data
-# ----------------------------------
+# Streamlit page configuration
+st.set_page_config(page_title="Heart Disease Predictor", layout="wide", page_icon="💓")
+
+# Title section
+st.markdown("""
+    <h1 style='text-align: center; color: crimson;'>💓 Heart Disease Prediction App</h1>
+    <p style='text-align: center; font-size:18px;'>Input patient details to predict the likelihood of heart disease using ML models</p>
+""", unsafe_allow_html=True)
+
+# Load and preprocess the dataset
 @st.cache_data
 def load_data():
-    columns = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs',
-               'restecg', 'thalach', 'exang', 'oldpeak', 'slope',
-               'ca', 'thal', 'target']
-    df = pd.read_csv('processed.cleveland.data', names=columns)
-    
-    # Handle missing values
-    df.replace('?', np.nan, inplace=True)
-    df.dropna(inplace=True)
-    df = df.astype(float)
-    
-    # Convert target
-    df['target'] = df['target'].apply(lambda x: 1 if x > 0 else 0)
-    return df
+    data = pd.read_csv('processed.cleveland.data', names=[
+        'age', 'sex', 'cp', 'trestbps', 'chol', 'fbs',
+        'restecg', 'thalach', 'exang', 'oldpeak', 'slope',
+        'ca', 'thal', 'target'
+    ])
+    data.replace('?', np.nan, inplace=True)
+    for col in data.columns:
+        data[col] = pd.to_numeric(data[col], errors='coerce')
+    data.dropna(inplace=True)
+    data['target'] = data['target'].apply(lambda x: 1 if int(x) > 0 else 0)
+    return data
 
 df = load_data()
 
-# Features and Target
-X = df.drop('target', axis=1)
-y = df['target']
-
-# Train-Test Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-# ----------------------------------
-# Train models
-# ----------------------------------
-log_reg = LogisticRegression(max_iter=3000)
-log_reg.fit(X_train, y_train)
-
-random_forest = RandomForestClassifier(random_state=42)
-random_forest.fit(X_train, y_train)
-
-xgboost_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
-xgboost_model.fit(X_train, y_train)
-
-# ----------------------------------
-# Streamlit UI
-# ----------------------------------
-st.title("Heart Disease Prediction App ❤️")
-st.markdown("""
-This application predicts the likelihood of a patient having heart disease using different Machine Learning models:
-- Logistic Regression
-- Random Forest
-- XGBoost
-
-Upload patient data, select a model, and get instant predictions!
-""")
+# Sidebar input fields
+st.sidebar.title("📝 Patient Info")
+st.sidebar.markdown("Fill in the patient's details:")
 
 def user_input_features():
-    age = st.sidebar.slider('Age', 20, 100, 50)
-    sex = st.sidebar.selectbox('Sex', (0, 1)) # 0: female, 1: male
-    cp = st.sidebar.slider('Chest Pain Type (0-3)', 0, 3, 1)
-    trestbps = st.sidebar.slider('Resting Blood Pressure', 80, 200, 120)
-    chol = st.sidebar.slider('Cholesterol', 100, 600, 200)
-    fbs = st.sidebar.selectbox('Fasting Blood Sugar > 120 mg/dl', (0, 1))
-    restecg = st.sidebar.slider('Resting ECG Results (0-2)', 0, 2, 1)
-    thalach = st.sidebar.slider('Max Heart Rate Achieved', 60, 250, 150)
-    exang = st.sidebar.selectbox('Exercise Induced Angina', (0, 1))
-    oldpeak = st.sidebar.slider('ST depression', 0.0, 6.0, 1.0)
-    slope = st.sidebar.slider('Slope of Peak Exercise ST Segment (0-2)', 0, 2, 1)
-    ca = st.sidebar.slider('Number of Major Vessels (0-3)', 0, 3, 0)
-    thal = st.sidebar.slider('Thalassemia (1 = normal; 2 = fixed defect; 3 = reversible defect)', 0, 3, 2)
-    
-    data = {
-        'age': age,
-        'sex': sex,
-        'cp': cp,
-        'trestbps': trestbps,
-        'chol': chol,
-        'fbs': fbs,
-        'restecg': restecg,
-        'thalach': thalach,
-        'exang': exang,
-        'oldpeak': oldpeak,
-        'slope': slope,
-        'ca': ca,
-        'thal': thal
+    age = st.sidebar.slider("Age", 29, 77, 54)
+    sex = st.sidebar.selectbox("Sex", [0, 1], format_func=lambda x: 'Female' if x == 0 else 'Male')
+    cp = st.sidebar.selectbox("Chest Pain Type (cp)", [0, 1, 2, 3])
+    trestbps = st.sidebar.slider("Resting Blood Pressure", 90, 200, 130)
+    chol = st.sidebar.slider("Cholesterol (mg/dL)", 120, 600, 245)
+    fbs = st.sidebar.radio("Fasting Blood Sugar > 120 mg/dL", [0, 1])
+    restecg = st.sidebar.selectbox("Resting ECG", [0, 1, 2])
+    thalach = st.sidebar.slider("Max Heart Rate", 70, 210, 150)
+    exang = st.sidebar.radio("Exercise-Induced Angina", [0, 1])
+    oldpeak = st.sidebar.slider("ST Depression", 0.0, 6.0, 1.0)
+    slope = st.sidebar.selectbox("Slope", [0, 1, 2])
+    ca = st.sidebar.selectbox("Major Vessels Colored", [0, 1, 2, 3])
+    thal = st.sidebar.selectbox("Thalassemia", [0, 1, 2, 3])
+
+    features = {
+        'age': age, 'sex': sex, 'cp': cp, 'trestbps': trestbps, 'chol': chol,
+        'fbs': fbs, 'restecg': restecg, 'thalach': thalach, 'exang': exang,
+        'oldpeak': oldpeak, 'slope': slope, 'ca': ca, 'thal': thal
     }
-    features = pd.DataFrame(data, index=[0])
-    return features
+    return pd.DataFrame([features])
 
 input_df = user_input_features()
 
-# ----------------------------------
-# Model Selection
-# ----------------------------------
-model_choice = st.selectbox('Select the Machine Learning Model', ('Logistic Regression', 'Random Forest', 'XGBoost'))
+# Model selection
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ Select Classifier")
+model_name = st.sidebar.radio("Choose an ML model", 
+                              ["Logistic Regression", "Random Forest", "XGBoost"])
 
-# ----------------------------------
-# Prediction
-# ----------------------------------
-if st.button('Predict'):
-    if model_choice == 'Logistic Regression':
-        prediction = log_reg.predict(input_df)
-        prediction_proba = log_reg.predict_proba(input_df)
-    elif model_choice == 'Random Forest':
-        prediction = random_forest.predict(input_df)
-        prediction_proba = random_forest.predict_proba(input_df)
-    else:
-        prediction = xgboost_model.predict(input_df)
-        prediction_proba = xgboost_model.predict_proba(input_df)
-    
-    # result = 'Heart Disease Detected 💔' if prediction[0] == 1 else 'No Heart Disease ❤️'
-    
-    
-# --- Display Predictions ---
-    st.subheader('Prediction Result:')
-    if prediction[0] == 0:
-        st.success('✅ No Heart Disease Detected')
-    else:
-        st.error('⚠️ High Risk of Heart Disease')
+# Data preparation
+X = df.drop("target", axis=1)
+y = df["target"]
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+X_train, X_test, y_train, y_test = train_test_split(
+    X_scaled, y, test_size=0.2, random_state=42
+)
 
-    st.subheader("Prediction Probability:")
-    st.write(f"Chances of No Heart Disease: {prediction_proba[0][0]*100:.2f}%")
-    st.write(f"Chances of Heart Disease: {prediction_proba[0][1]*100:.2f}%")
+# Apply same scaling to user input
+input_scaled = scaler.transform(input_df)
 
-# --- Footer ---
-    st.markdown("""---""")
-    st.caption("Created by Raj Zaveri 🚀 | Powered by Machine Learning")
+# Model training
+if model_name == "Logistic Regression":
+    model = LogisticRegression()
+elif model_name == "Random Forest":
+    model = RandomForestClassifier()
+else:
+    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
 
-# ----------------------------------
-# Show Raw Data
-# ----------------------------------
-if st.checkbox('Show Raw Data'):
-    st.subheader('Raw Dataset')
-    st.write(df)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+prediction = model.predict(input_scaled)[0]
+prediction_proba = model.predict_proba(input_scaled)[0][1]
+
+# Layout with columns
+col1, col2 = st.columns([1, 2])
+
+# Results
+with col1:
+    st.subheader("🔍 Prediction Results")
+    st.metric("Model Accuracy", f"{accuracy_score(y_test, y_pred)*100:.2f}%")
+    st.metric("Patient Risk", "💔 At Risk" if prediction == 1 else "✅ No Risk")
+    st.progress(prediction_proba)
+
+with col2:
+    with st.expander("📊 Detailed Evaluation"):
+        st.text("Classification Report:")
+        st.code(classification_report(y_test, y_pred), language='text')
+        st.text("Confusion Matrix:")
+        st.write(confusion_matrix(y_test, y_pred))
+
+# Footer
+st.markdown("""
+<hr>
+<p style='text-align: center;'>
+Made with ❤️ using Streamlit | <a href='https://github.com/raj-zaveri'>GitHub</a>
+</p>
+""", unsafe_allow_html=True)
