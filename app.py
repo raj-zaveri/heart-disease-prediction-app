@@ -46,7 +46,7 @@ logistic_model.fit(X_train, y_train)
 rf_model = RandomForestClassifier(random_state=42)
 rf_model.fit(X_train, y_train)
 
-xgb_model = XGBClassifier(random_state=42, use_label_encoder=False, eval_metric='logloss')
+xgb_model = XGBClassifier(random_state=42, eval_metric='logloss')
 xgb_model.fit(X_train, y_train)
 
 # Sidebar for navigation
@@ -114,7 +114,7 @@ if page == "Heart Disease Prediction":
 
         # Risk Gauge Visualization
         fig = go.Figure(go.Indicator(
-            mode="gauge+number",
+            mode="gauge+number+delta",
             value=prediction_proba * 100,
             domain={'x': [0, 1], 'y': [0, 1]},
             title={'text': "Risk (%)", 'font': {'size': 24}},
@@ -134,19 +134,11 @@ if page == "Heart Disease Prediction":
             }
         ))
 
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
-        # 🎯 Show Model Performance
-        st.subheader("⚙️ Model Performance on Test Data")
-
-        y_pred_test = model.predict(X_test)
-        st.write(f"Accuracy Score: **{accuracy_score(y_test, y_pred_test):.2f}**")
-
-        st.text("Classification Report:")
-        st.text(classification_report(y_test, y_pred_test))
 
         # -----------------------
         # Footer
         # -----------------------
         st.markdown("---")
-        st.markdown("Made with ❤️ by Raj Zaveri")
+        st.markdown("Created by Raj Zaveri 🚀| Powered by Machine Learning")
